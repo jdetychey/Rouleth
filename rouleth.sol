@@ -1,29 +1,11 @@
-//                       , ; ,   .-'"""'-.   , ; ,
-//                       \\|/  .'          '.  \|//
-//                        \-;-/   ()   ()   \-;-/
-//                        // ;               ; \\
-//                       //__; :.         .; ;__\\
-//                      `-----\'.'-.....-'.'/-----'
-//                             '.'.-.-,_.'.'
-//                               '(  (..-'
-//                                 '-'
-//  ROULETH 
-//
-//  Play the Roulette on ethereum blockchain !
-//  (or become a member of Rouleth's Decentralized Organisation and contribute to the bankroll.) 
-//
-//
-//
-//   check latest contract address version on the current website interface
-//   V 2
-//
-//
-//
-
+// SPDX-License-Identifier: GPL-3.0
+//original Rouleth by Bunjin
+//https://github.com/Bunjin/Rouleth
+pragma solidity ^0.8.0;
 contract Rouleth
 {
     //Game and Global Variables, Structure of gambles
-    address developer;
+    address payable developer;
     uint8 blockDelay; //nb of blocks to wait before spin
     uint8 blockExpiration; //nb of blocks before bet expiration (due to hash storage limits)
     uint256 maxGamble; //max gamble value manually set by config
@@ -60,54 +42,41 @@ contract Rouleth
     //        Management & Config FUNCTIONS        //
     //**********************************************
 
-    function  Rouleth() private //creation settings
+    constructor() //creation settings
     { 
-        developer = msg.sender;
+        developer = payable(msg.sender);
         blockDelay=1; //indicates which block after bet will be used for RNG
-	blockExpiration=200; //delay after which gamble expires
-        minGamble=50 finney; //configurable min bet
-        maxGamble=500 finney; //configurable max bet
+	    blockExpiration=200; //delay after which gamble expires
+        minGamble=1000000 gwei; //configurable min bet ie 0.001 ETH
+        maxGamble=100000000 gwei; //configurable max bet ie 0.1 ETH
         maxBetsPerBlock=5; // limit of bets per block, to prevent multiple bets per miners
         casinoStatisticalLimit=100; //we are targeting at least 400
     }
     
     modifier onlyDeveloper() 
     {
-	if (msg.sender!=developer) throw;
-	_
+	if (msg.sender!=developer) revert("only developer");
+    _;
     }
     
-    function changeDeveloper_only_Dev(address new_dev)
-    noEthSent
+    function changeDeveloper_only_Dev(address new_dev) public
     onlyDeveloper
     {
-	developer=new_dev;
-    }
-
-    //Prevents accidental sending of Eth when you shouldn't
-    modifier noEthSent()
-    {
-        if (msg.value>0) 
-	{
-	    throw;
-	}
-        _
+	developer=payable(new_dev);
     }
 
 
     //Activate, Deactivate Betting
     enum States{active, inactive} States private contract_state;
     
-    function disableBetting_only_Dev()
-    noEthSent
+    function disableBetting_only_Dev() public
     onlyDeveloper
     {
         contract_state=States.inactive;
     }
 
 
-    function enableBetting_only_Dev()
-    noEthSent
+    function enableBetting_only_Dev() public
     onlyDeveloper
     {
         contract_state=States.active;
@@ -116,40 +85,40 @@ contract Rouleth
     
     modifier onlyActive()
     {
-        if (contract_state==States.inactive) throw;
-        _
+        if (contract_state==States.inactive) revert("Rouleth inactive");
+        _;
     }
 
 
 
     //Change some settings within safety bounds
     function changeSettings_only_Dev(uint newCasinoStatLimit, uint newMaxBetsBlock, uint256 newMinGamble, uint256 newMaxGamble, uint16 newMaxInvestor, uint256 newMinInvestment,uint256 newMaxInvestment, uint256 newLockPeriod, uint8 newBlockDelay, uint8 newBlockExpiration)
-    noEthSent
     onlyDeveloper
+    public
     {
 
 
-        // changes the statistical multiplier that guarantees the long run casino survival
-        if (newCasinoStatLimit<100) throw;
+        // changes the statistical multiplier that guarantees the long run survival
+        if (newCasinoStatLimit<100) revert("Rouleth Survival Threatened");
         casinoStatisticalLimit=newCasinoStatLimit;
         //Max number of bets per block to prevent miner cheating
         maxBetsPerBlock=newMaxBetsBlock;
         //MAX BET : limited by payroll/(casinoStatisticalLimit*35)
-        if (newMaxGamble<newMinGamble) throw;  
+        if (newMaxGamble<newMinGamble) revert("Rouleth Survival Threatened");  
 	else { maxGamble=newMaxGamble; }
         //Min Bet
-        if (newMinGamble<0) throw; 
+        if (newMinGamble<0) revert("Rouleth Survival Threatened"); 
 	else { minGamble=newMinGamble; }
         //MAX NB of DAO members (can only increase (within bounds) or stay equal)
         //this number of members can only increase after 25k spins on Rouleth
         //refuse change of max number of members if less than 25k spins played
-        if (newMaxInvestor!=setting_maxInvestors && gambles.length<25000) throw;
+        if (newMaxInvestor!=setting_maxInvestors && gambles.length<25000) revert("Rouleth Survival Threatened");
         if ( newMaxInvestor<setting_maxInvestors 
-             || newMaxInvestor>investors.length) throw;
+             || newMaxInvestor>investors.length) revert("Rouleth Survival Threatened");
         else { setting_maxInvestors=newMaxInvestor;}
         //computes the results of the vote of the VIP members, fees to apply to new members
         computeResultVoteExtraInvestFeesRate();
-        if (newMaxInvestment<newMinInvestment) throw;
+        if (newMaxInvestment<newMinInvestment) revert("Rouleth Survival Threatened");
         //MIN INVEST : 
         setting_minInvestment=newMinInvestment;
         //MAX INVEST : 
@@ -157,11 +126,11 @@ contract Rouleth
         //Invest LOCK PERIOD
 	//1 year max
 	//can also serve as a failsafe to shutdown withdraws for a period
-        if (setting_lockPeriod>360 days) throw; 
+        if (setting_lockPeriod>360 days) revert("Rouleth Survival Threatened"); 
         setting_lockPeriod=newLockPeriod;
         //Delay before spin :
 	blockDelay=newBlockDelay;
-	if (newBlockExpiration<blockDelay+20) throw;
+	if (newBlockExpiration<blockDelay+20) revert("Rouleth Survival Threatened");
 	blockExpiration=newBlockExpiration;
         updateMaxBet();
     }
@@ -172,18 +141,14 @@ contract Rouleth
     //**********************************************
 
     //User set nickname
-    mapping (address => string) nicknames;
-    function setNickname(string name) 
-    noEthSent
+    mapping (address => string) public nicknames;
+    function setNickname(string memory _name) 
+    public
     {
-        if (bytes(name).length >= 2 && bytes(name).length <= 30)
-            nicknames[msg.sender] = name;
+        if (bytes(_name).length >= 2 && bytes(_name).length <= 30)
+            nicknames[msg.sender] = _name;
     }
-    function getNickname(address _address) constant returns(string _name) {
-        _name = nicknames[_address];
-    }
-
-    
+   
     //**********************************************
     //                 BETTING FUNCTIONS                    //
     //**********************************************
@@ -191,7 +156,7 @@ contract Rouleth
     //***//basic betting without Mist or contract call
     //activates when the player only sends eth to the contract
     //without specifying any type of bet.
-    function () 
+    fallback () external
     {
 	//defaut bet : bet on red
 	betOnColor(true,false);
@@ -218,14 +183,13 @@ contract Rouleth
     // returns bet value
     function checkBetValue() private returns(uint256 playerBetValue)
     {
-        if (msg.value < minGamble) throw;
+        if (msg.value < minGamble) revert("Bet too low");
 	if (msg.value > currentMaxGamble) //if above max, send difference back
 	{
             playerBetValue=currentMaxGamble;
 	}
         else
         { playerBetValue=msg.value; }
-        return;
     }
 
 
@@ -234,8 +198,8 @@ contract Rouleth
     {
         if (gambles.length!=0 && block.number==gambles[gambles.length-1].blockNumber) nbBetsCurrentBlock+=1;
         else nbBetsCurrentBlock=0;
-        if (nbBetsCurrentBlock>=maxBetsPerBlock) throw;
-        _
+        if (nbBetsCurrentBlock>=maxBetsPerBlock) revert("Too many bets");
+        _;
     }
 
 
@@ -262,18 +226,19 @@ contract Rouleth
 	//refund excess bet (at last step vs re-entry)
         if (betValue<msg.value) 
         {
- 	    if (msg.sender.send(msg.value-betValue)==false) throw;
+           address payable _player = payable(msg.sender);  
+ 	    if (_player.send(msg.value-betValue)==false) revert("re-entry protection");
         }
     }
 
 
     //***//bet on Number	
-    function betOnNumber(uint8 numberChosen)
+    function betOnNumber(uint8 numberChosen) public
     onlyActive
     checkNbBetsCurrentBlock
     {
         //check that number chosen is valid and records bet
-        if (numberChosen>36) throw;
+        if (numberChosen>36) revert("unavailable number");
         placeBet(BetTypes.number, numberChosen);
     }
 
@@ -281,7 +246,7 @@ contract Rouleth
     //bet type : color
     //input : 0 for red
     //input : 1 for black
-    function betOnColor(bool Red, bool Black)
+    function betOnColor(bool Red, bool Black) public
     onlyActive
     checkNbBetsCurrentBlock
     {
@@ -297,7 +262,7 @@ contract Rouleth
             count+=1; 
             input=1;
         }
-        if (count!=1) throw;
+        if (count!=1) revert("unavailable bet");
         placeBet(BetTypes.color, input);
     }
 
@@ -305,7 +270,7 @@ contract Rouleth
     //bet type : lowhigh
     //input : 0 for low
     //input : 1 for low
-    function betOnLowHigh(bool Low, bool High)
+    function betOnLowHigh(bool Low, bool High) public
     onlyActive
     checkNbBetsCurrentBlock
     {
@@ -321,7 +286,7 @@ contract Rouleth
             count+=1; 
             input=1;
         }
-        if (count!=1) throw;
+        if (count!=1) revert("unavailable bet");
         placeBet(BetTypes.lowhigh, input);
     }
 
@@ -329,7 +294,7 @@ contract Rouleth
     //bet type : parity
     //input : 0 for even
     //input : 1 for odd
-    function betOnOddEven(bool Odd, bool Even)
+    function betOnOddEven(bool Odd, bool Even) public
     onlyActive
     checkNbBetsCurrentBlock
     {
@@ -345,7 +310,7 @@ contract Rouleth
             count+=1; 
             input=1;
         }
-        if (count!=1) throw;
+        if (count!=1) revert("unavailable bet");
         placeBet(BetTypes.parity, input);
     }
 
@@ -355,7 +320,7 @@ contract Rouleth
     //     //input : 0 for first dozen
     //     //input : 1 for second dozen
     //     //input : 2 for third dozen
-    function betOnDozen(bool First, bool Second, bool Third)
+    function betOnDozen(bool First, bool Second, bool Third) public
     {
         betOnColumnOrDozen(First,Second,Third, BetTypes.dozen);
     }
@@ -366,7 +331,7 @@ contract Rouleth
     //     //input : 0 for first column
     //     //input : 1 for second column
     //     //input : 2 for third column
-    function betOnColumn(bool First, bool Second, bool Third)
+    function betOnColumn(bool First, bool Second, bool Third) public
     {
         betOnColumnOrDozen(First, Second, Third, BetTypes.column);
     }
@@ -392,7 +357,7 @@ contract Rouleth
             count+=1; 
             input=2;
         }
-        if (count!=1) throw;
+        if (count!=1)  revert("unavailable bet");
         placeBet(bet, input);
     }
 
@@ -406,8 +371,7 @@ contract Rouleth
 
     //***//function to spin callable
     // no eth allowed
-    function spinTheWheel(address spin_for_player)
-    noEthSent
+    function spinTheWheel(address spin_for_player) public
     {
         SpinTheWheel(spin_for_player);
     }
@@ -415,20 +379,20 @@ contract Rouleth
 
     function SpinTheWheel(address playerSpinned) private
     {
-        if (playerSpinned==0)
+        if (playerSpinned==0x0000000000000000000000000000000000000000)
 	{
 	    playerSpinned=msg.sender;         //if no index spins for the sender
 	}
 
 	//check that player has to spin
-        if (playerStatus[playerSpinned]!=Status.waitingForSpin) throw;
+        if (playerStatus[playerSpinned]!=Status.waitingForSpin) revert("unavailable spin");
         //redundent double check : check that gamble has not been spinned already
-        if (gambles[gambleIndex[playerSpinned]].spinned==true) throw;
+        if (gambles[gambleIndex[playerSpinned]].spinned==true) revert("unavailable spin");
         //check that the player waited for the delay before spin
         //and also that the bet is not expired
 	uint playerblock = gambles[gambleIndex[playerSpinned]].blockNumber;
         //too early to spin
-	if (block.number<=playerblock+blockDelay) throw;
+	if (block.number<=playerblock+blockDelay) revert("unavailable spin");
         //too late, bet expired, player lost
         else if (block.number>playerblock+blockExpiration)  solveBet(playerSpinned, 255, false, 1, 0, 0) ;
 	//spin !
@@ -436,11 +400,11 @@ contract Rouleth
 	{
 	    uint8 wheelResult;
             //Spin the wheel, 
-            bytes32 blockHash= block.blockhash(playerblock+blockDelay);
+            bytes32 blockHash= blockhash(playerblock+blockDelay);
             //security check that the Hash is not empty
-            if (blockHash==0) throw;
+            if (blockHash==0) revert("unavailable resut");
 	    // generate the hash for RNG from the blockHash and the player's address
-            bytes32 shaPlayer = sha3(playerSpinned, blockHash);
+            bytes32 shaPlayer = keccak256(abi.encodePacked(playerSpinned, blockHash));
 	    // get the final wheel result
 	    wheelResult = uint8(uint256(shaPlayer)%37);
             //check result against bet and pay if win
@@ -478,17 +442,19 @@ contract Rouleth
 	    gambles[gambleIndex[player]].win=true;
 	    uint win_v = (multiplier-1)*bet_v;
             lossSinceChange+=win_v;
-            Win(player, result, win_v, blockHash, shaPlayer, gambleIndex[player]);
+            emit Win(player, result, win_v, blockHash, shaPlayer, gambleIndex[player]);
             //send win!
 	    //safe send vs potential callstack overflowed spins
-            if (player.send(win_v+bet_v)==false) throw;
+        address payable _player = payable(player);  
+            if (_player.send(win_v+bet_v)==false) revert("overflow");
         }
         else
         {
-	    Loss(player, result, bet_v-1, blockHash, shaPlayer, gambleIndex[player]);
+	    emit Loss(player, result, bet_v-1, blockHash, shaPlayer, gambleIndex[player]);
             profitSinceChange+=bet_v-1;
+            address payable _player = payable(player);  
             //send 1 wei to confirm spin if loss
-            if (player.send(1)==false) throw;
+            if (_player.send(1)==false) revert("loss confirmation error");
         }
 
     }
@@ -631,7 +597,7 @@ contract Rouleth
 
 
     //Become a DAO member.
-    function invest()
+    function invest() public payable
     {
         // update balances before altering the shares            
         updateBalances();
@@ -646,7 +612,7 @@ contract Rouleth
         for (uint16 k = 0; k<setting_maxInvestors; k++)
         { 
             // captures an index of an open position
-            if (investors[k].investor==0) openPosition=k; 
+            if (investors[k].investor==0x0000000000000000000000000000000000000000) openPosition=k; 
             // captures if already a member 
             else if (investors[k].investor==msg.sender)
             {
@@ -658,7 +624,7 @@ contract Rouleth
         if (!alreadyInvestor)
         {
             // check that more than min is sent (variable setting)
-            if (msg.value<setting_minInvestment) throw;
+            if (msg.value<setting_minInvestment) revert("amount too low");
             // check that less than max is sent (variable setting)
             // otherwise refund
             if (msg.value>setting_maxInvestment)
@@ -671,13 +637,13 @@ contract Rouleth
 		netInvest=msg.value;
 	    }
             //members can't become a VIP member after the initial period
-            if (setting_maxInvestors >77 && openPosition<77) throw;
+            if (setting_maxInvestors >77 && openPosition<77) revert("overflow");
             //case : array not full, record new member
-            else if (openPosition!=999) investors[openPosition]=Investor(msg.sender, now);
+            else if (openPosition!=999) investors[openPosition]=Investor(msg.sender, block.timestamp);
             //case : array full
             else
             {
-                throw;
+                revert("overflow");
             }
         }
         //already a member
@@ -688,10 +654,10 @@ contract Rouleth
 	    // too much refuse additional invest
             if (balance[msg.sender]+msg.value>setting_maxInvestment)
             {
-                throw;
+                revert("overflow");
             }
 	    // this additionnal amount should be of at least 1/5 of "setting_minInvestment" (vs spam)
-	    if (msg.value<setting_minInvestment/5) throw;
+	    if (msg.value<setting_minInvestment/5) revert("overflow");
         }
 
         // add to balance of member and to bankroll
@@ -703,7 +669,7 @@ contract Rouleth
         developmentAllocation=10*netInvest/100; 
         netInvest-=developmentAllocation;
         //send game development allocation to Rouleth DAO or tech provider
-        if (developer.send(developmentAllocation)==false) throw;
+        if (developer.send(developmentAllocation)==false) revert("overflow");
 
 	// Apply extra entry fee once casino has been opened to extra members
 	// that fee will be shared between the VIP members and represents the increment of
@@ -721,14 +687,15 @@ contract Rouleth
             profitVIP += entryExtraCost;
             netInvest-=entryExtraCost;
         }
-        newInvest(msg.sender, msg.value, netInvest);//event log
+        emit newInvest(msg.sender, msg.value, netInvest);//event log
         balance[msg.sender]+=netInvest; //add to balance
         payroll+=netInvest; //add to bankroll
         updateMaxBet();
         //refund potential excess
         if (excess>0) 
         {
-            if (msg.sender.send(excess)==false) throw;
+            address payable _refund = payable(msg.sender);
+            if (_refund.send(excess)==false) revert("overflow");
         }
     }
 
@@ -738,16 +705,16 @@ contract Rouleth
     //enter twice the address to make sure you make no mistake.
     //this can't be reversed if you don't own the target account
     function transferInvestorAccount(address newInvestorAccountOwner, address newInvestorAccountOwner_confirm)
-    noEthSent
+    public 
     {
-        if (newInvestorAccountOwner!=newInvestorAccountOwner_confirm) throw;
-        if (newInvestorAccountOwner==0) throw;
+        if (newInvestorAccountOwner!=newInvestorAccountOwner_confirm) revert("overflow");
+        if (newInvestorAccountOwner==0x0000000000000000000000000000000000000000) revert("overflow");
         //retrieve investor ID
         uint16 investorID=999;
         for (uint16 k = 0; k<setting_maxInvestors; k++)
         {
 	    //new address cant be of a current investor
-            if (investors[k].investor==newInvestorAccountOwner) throw;
+            if (investors[k].investor==newInvestorAccountOwner) revert("overflow");
 
 	    //retrieve investor id
             if (investors[k].investor==msg.sender)
@@ -755,7 +722,7 @@ contract Rouleth
                 investorID=k;
             }
         }
-        if (investorID==999) throw; //stop if not a member
+        if (investorID==999) revert("not a member"); //stop if not a member
 	else
 	    //accept and execute change of address
 	    //votes on entryFeesRate are not transfered
@@ -773,15 +740,14 @@ contract Rouleth
     // your balance is fully withdrawn
     event withdraw(address player, uint withdraw_v);
     
-    function withdrawInvestment(uint256 amountToWithdrawInWei)
-    noEthSent
+    function withdrawInvestment(uint256 amountToWithdrawInWei) public
     {
 	//vs spam withdraw min 1/10 of min
-	if (amountToWithdrawInWei!=0 && amountToWithdrawInWei<setting_minInvestment/10) throw;
+	if (amountToWithdrawInWei!=0 && amountToWithdrawInWei<setting_minInvestment/10) revert("too low");
         //before withdraw, update balances with the Profit and Loss sinceChange
         updateBalances();
 	//check that amount requested is authorized  
-	if (amountToWithdrawInWei>balance[msg.sender]) throw;
+	if (amountToWithdrawInWei>balance[msg.sender]) revert("unauthorized");
         //retrieve member ID
         uint16 investorID=999;
         for (uint16 k = 0; k<setting_maxInvestors; k++)
@@ -792,17 +758,18 @@ contract Rouleth
                 break;
             }
         }
-        if (investorID==999) throw; //stop if not a member
+        if (investorID==999) revert("not a member"); //stop if not a member
         //check if investment lock period is over
-        if (investors[investorID].time+setting_lockPeriod>now) throw;
+        if (investors[investorID].time+setting_lockPeriod>block.timestamp) revert("vesting not over");
         //if balance left after withdraw is still above min accept partial withdraw
         if (balance[msg.sender]-amountToWithdrawInWei>=setting_minInvestment && amountToWithdrawInWei!=0)
         {
             balance[msg.sender]-=amountToWithdrawInWei;
             payroll-=amountToWithdrawInWei;
             //send amount to investor (with security if transaction fails)
-            if (msg.sender.send(amountToWithdrawInWei)==false) throw;
-	    withdraw(msg.sender, amountToWithdrawInWei);
+            address payable _withdraw = payable(msg.sender);
+            if (_withdraw.send(amountToWithdrawInWei)==false) revert("overflow");
+	    emit withdraw(msg.sender, amountToWithdrawInWei);
         }
         else
             //if amountToWithdraw=0 : user wants full withdraw
@@ -815,16 +782,16 @@ contract Rouleth
 
 	    //delete member
             delete investors[investorID];
-            if (msg.sender.send(fullAmount)==false) throw;
-   	    withdraw(msg.sender, fullAmount);
+            address payable _withdraw = payable(msg.sender);
+            if (_withdraw.send(fullAmount)==false) revert("overflow");
+   	    emit withdraw(msg.sender, fullAmount);
         }
         updateMaxBet();
     }
 
     //***// updates balances with Profit Losses when there is a withdraw/deposit
     // can be called by dev for accounting when there are no more changes
-    function manualUpdateBalances_only_Dev()
-    noEthSent
+    function manualUpdateBalances_only_Dev() public
     onlyDeveloper
     {
 	updateBalances();
@@ -846,7 +813,7 @@ contract Rouleth
                 profitToSplit=profitSinceChange-lossSinceChange;
                 uint256 developerFees=profitToSplit*20/100;
                 profitToSplit-=developerFees;
-                if (developer.send(developerFees)==false) throw;
+                if (developer.send(developerFees)==false) revert("fees not applied");
             }
             else
             {
@@ -860,7 +827,7 @@ contract Rouleth
             for (uint16 k=0; k<setting_maxInvestors; k++)
             {
                 address inv=investors[k].investor;
-                if (inv==0) continue;
+                if (inv==0x0000000000000000000000000000000000000000) continue;
                 else
                 {
                     if (profitToSplit!=0) 
@@ -901,10 +868,9 @@ contract Rouleth
     mapping (address=>uint) hundredminus_extraInvestFeesRate;
     // max fee is 99%
     // a fee of 100% indicates that the VIP has never voted.
-    function voteOnNewEntryFees_only_VIP(uint8 extraInvestFeesRate_0_to_99)
-    noEthSent
+    function voteOnNewEntryFees_only_VIP(uint8 extraInvestFeesRate_0_to_99) public
     {
-        if (extraInvestFeesRate_0_to_99<1 || extraInvestFeesRate_0_to_99>99) throw;
+        if (extraInvestFeesRate_0_to_99<1 || extraInvestFeesRate_0_to_99>99) revert("overflow");
         hundredminus_extraInvestFeesRate[msg.sender]=100-extraInvestFeesRate_0_to_99;
     }
 
@@ -918,7 +884,7 @@ contract Rouleth
         //compute vote results among VIPs
         for (uint8 k=0; k<77; k++)
         {
-            if (investors[k].investor==0) continue;
+            if (investors[k].investor==0x0000000000000000000000000000000000000000) continue;
             else
             {
                 //don't count vote if the VIP never voted
@@ -940,15 +906,14 @@ contract Rouleth
 
     //Split the profits of the VIP members on extra members' contribution
     uint profitVIP;
-    function splitProfitVIP_only_Dev()
-    noEthSent
+    function splitProfitVIP_only_Dev() public
     onlyDeveloper
     {
         payrollVIP=0;
         //compute total payroll of the VIPs
         for (uint8 k=0; k<77; k++)
         {
-            if (investors[k].investor==0) continue;
+            if (investors[k].investor==0x0000000000000000000000000000000000000000) continue;
             else
             {
                 payrollVIP+=balance[investors[k].investor];
@@ -958,7 +923,7 @@ contract Rouleth
 	uint totalSplit;
         for (uint8 i=0; i<77; i++)
         {
-            if (investors[i].investor==0) continue;
+            if (investors[i].investor==0x0000000000000000000000000000000000000000) continue;
             else
             {
 		uint toSplit=balance[investors[i].investor]*profitVIP/payrollVIP;
@@ -975,56 +940,49 @@ contract Rouleth
 
     
     //INFORMATION FUNCTIONS
-    function checkProfitLossSinceInvestorChange() constant returns(uint profit_since_update_balances, uint loss_since_update_balances, uint profit_VIP_since_update_balances)
+    function checkProfitLossSinceInvestorChange() public view returns(uint profit_since_update_balances, uint loss_since_update_balances, uint profit_VIP_since_update_balances)
     {
         profit_since_update_balances=profitSinceChange;
         loss_since_update_balances=lossSinceChange;
         profit_VIP_since_update_balances=profitVIP;	
-        return;
     }
 
-    function checkInvestorBalance(address investor) constant returns(uint balanceInWei)
+    function checkInvestorBalance(address investor) public view returns(uint balanceInWei)
     {
         balanceInWei=balance[investor];
-        return;
     }
 
-    function getInvestorList(uint index) constant returns(address investor, uint endLockPeriod)
+    function getInvestorList(uint index) public view returns(address investor, uint endLockPeriod)
     {
         investor=investors[index].investor;
         endLockPeriod=investors[index].time+setting_lockPeriod;
-        return;
     }
     
-    function investmentEntryInfos() constant returns(uint current_max_nb_of_investors, uint investLockPeriod, uint voted_Fees_Rate_on_extra_investments)
+    function investmentEntryInfos() public view returns(uint current_max_nb_of_investors, uint investLockPeriod, uint voted_Fees_Rate_on_extra_investments)
     {
     	investLockPeriod=setting_lockPeriod;
     	voted_Fees_Rate_on_extra_investments=voted_extraInvestFeesRate;
     	current_max_nb_of_investors=setting_maxInvestors;
-    	return;
     }
     
-    function getSettings() constant returns(uint maxBet, uint8 blockDelayBeforeSpin)
+    function getSettings() public view returns(uint maxBet, uint8 blockDelayBeforeSpin)
     {
     	maxBet=currentMaxGamble;
     	blockDelayBeforeSpin=blockDelay;
-    	return ;
     }
 
-    function getTotalGambles() constant returns(uint _totalGambles)
+    function getTotalGambles() public view returns(uint _totalGambles)
     {
         _totalGambles=totalGambles;
-    	return ;
     }
     
-    function getPayroll() constant returns(uint payroll_at_last_update_balances)
+    function getPayroll() public view returns(uint payroll_at_last_update_balances)
     {
         payroll_at_last_update_balances=payroll;
-    	return ;
     }
 
     
-    function checkMyBet(address player) constant returns(Status player_status, BetTypes bettype, uint8 input, uint value, uint8 result, bool wheelspinned, bool win, uint blockNb, uint blockSpin, uint gambleID)
+    function checkMyBet(address player) public view returns(Status player_status, BetTypes bettype, uint8 input, uint value, uint8 result, bool wheelspinned, bool win, uint blockNb, uint blockSpin, uint gambleID)
     {
         player_status=playerStatus[player];
         bettype=gambles[gambleIndex[player]].betType;
@@ -1036,10 +994,9 @@ contract Rouleth
         blockNb=gambles[gambleIndex[player]].blockNumber;
         blockSpin=gambles[gambleIndex[player]].blockSpinned;
     	gambleID=gambleIndex[player];
-    	return;
     }
     
-    function getGamblesList(uint256 index) constant returns(address player, BetTypes bettype, uint8 input, uint value, uint8 result, bool wheelspinned, bool win, uint blockNb, uint blockSpin)
+    function getGamblesList(uint256 index) public view returns(address player, BetTypes bettype, uint8 input, uint value, uint8 result, bool wheelspinned, bool win, uint blockNb, uint blockSpin)
     {
         player=gambles[index].player;
         bettype=gambles[index].betType;
@@ -1050,7 +1007,6 @@ contract Rouleth
         win=gambles[index].win;
     	blockNb=gambles[index].blockNumber;
         blockSpin=gambles[index].blockSpinned;
-    	return;
     }
 
 } //end of contract
